@@ -36,6 +36,6 @@ sample_html = """
 """
 
 parser = ScriptParser()
-parser.feed(html)
+parser.feed(sample_html)
 
 print("Scripturi găsite:", parser.script_sources)
