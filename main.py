@@ -1,5 +1,5 @@
 import json
-from urllib.request import urlopen
+from urllib.request import urlopen, Request
 from urllib.parse import urljoin
 from html.parser import HTMLParser
 from urllib.error import URLError, HTTPError
@@ -21,8 +21,13 @@ class ScriptParser(HTMLParser):
 
 
 def analyze_website(url):
+    request = Request(
+        url,
+        headers={"User-Agent": "Mozilla/5.0"}
+    )
+
     try:
-        with urlopen(url, timeout=15) as response:
+        with urlopen(request, timeout=15) as response:
             final_url = response.url
             html = response.read().decode("utf-8")
 
