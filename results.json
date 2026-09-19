@@ -1,7 +1,8 @@
 {
     "source_type": "website",
-    "url": "https://jcmobilecigars.com",
+    "url": "https://somalidisablesupport.com",
     "status": "error",
-    "error": "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1082)",
+    "http_status": 406,
+    "error": "Not Acceptable",
     "technologies": []
 }

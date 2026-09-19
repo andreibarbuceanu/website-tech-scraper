@@ -17,14 +17,17 @@ Built for the Veridion internship challenge.
 - Stores detections as dictionaries in a `detections` list.
 - Exports `source_type`, `url`, `status`, and `technologies` to `results.json`.
 - Catches `URLError`, saves its reason in an `error` field, and exits with code 1.
+- Handles `HTTPError` separately to also save the numeric `http_status`.
 - Verified jQuery detection earlier with a controlled HTML example.
 - An earlier user run fetched `example.com` successfully (HTTP 200) and found
   no external script references or matching technologies in the returned HTML.
-- The latest run attempted `jcmobilecigars.com` from the challenge list and
+- An earlier run attempted `jcmobilecigars.com` from the challenge list and
   recorded a certificate verification failure in JSON.
+- The latest saved result for `somalidisablesupport.com` records HTTP 406,
+  `Not Acceptable`; the exact reason for the server response is not established.
 
 Technology detection is currently limited to one known jQuery script URL.
-One challenge domain has been attempted; batch processing is not implemented.
+Two challenge domains have been attempted; batch processing is not implemented.
 
 ## Requirements
 
@@ -57,7 +60,7 @@ source .venv/bin/activate
 python main.py
 ```
 
-Run from the project folder. The current script requests https://jcmobilecigars.com
+Run from the project folder. The current script requests https://somalidisablesupport.com
 and checks its downloaded HTML for the known jQuery script URL. It writes `results.json` in the
 current working directory, replacing any existing file with that name.
 
@@ -239,8 +242,20 @@ the `result` object once on either success or a caught `URLError`.
 
 ### Request errors and failure output
 
-The HTTP request and response reading are inside a `try` block. If they
-raise `URLError`, `except URLError as error` prints the reason and builds:
+The HTTP request and response reading are inside a `try` block. The handlers
+are checked in this order:
+
+1. `except HTTPError as error`: handles HTTP error responses and records
+   `error.code` as `http_status`, plus `str(error.reason)` as `error`.
+2. `except URLError as error`: handles other URL errors, such as DNS,
+   connection or certificate verification failures, and records the reason.
+
+`HTTPError` is a subclass of `URLError`, so it must come first to preserve
+the separate HTTP handling. Python executes only the first matching handler.
+An HTTP code describes the response but does not identify or resolve its
+underlying cause.
+
+For a non-HTTP `URLError`, the result is built as follows:
 
 ```python
 result = {
@@ -263,14 +278,15 @@ The inspected `results.json` contains the latest failed attempt:
 ```json
 {
     "source_type": "website",
-    "url": "https://jcmobilecigars.com",
+    "url": "https://somalidisablesupport.com",
     "status": "error",
-    "error": "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1082)",
+    "http_status": 406,
+    "error": "Not Acceptable",
     "technologies": []
 }
 ```
 
-The certificate problem remains unresolved and HTTPS certificate verification
+The earlier certificate problem on `jcmobilecigars.com` remains unresolved and HTTPS certificate verification
 remains enabled. The error alone does not establish whether the cause is
 the website, a network intermediary, or the local trust configuration.
 
@@ -280,6 +296,18 @@ failure replaces the previous run's result rather than leaving stale data.
 Errors outside the current handler can still interrupt the program without
 updating the output.
 
+### Why there are three JSON-writing blocks
+
+There is a save block for HTTP errors, another for other URL errors, and
+one for successful analysis. Only one is reached per run on these paths:
+each error handler saves its result and calls `SystemExit(1)`, so execution
+cannot reach the success save afterward. On success, neither error handler
+runs. This differs from the earlier obsolete code that wrote two results
+sequentially in the same run.
+
+The repeated writing code can later be moved to a shared function or a
+single common save step. That refactoring has not been implemented yet.
+
 ## Current limitations
 
 - Uses one hardcoded URL.
@@ -287,7 +315,7 @@ updating the output.
 - Does not execute JavaScript or observe dynamically inserted scripts.
 - Ignores inline script content.
 - Does not account for HTML `<base href>` when resolving relative URLs.
-- Handles `URLError`, but not all failures (for example, direct timeouts,
+- Handles `HTTPError` and `URLError`, but not all failures (for example, direct timeouts,
   decoding errors, or file-write errors).
 - Detects only one exact jQuery URL in the downloaded HTML.
 - Detection compares original script references, not the absolute URLs printed earlier.
@@ -299,6 +327,7 @@ updating the output.
 - Obtain a successful fetch from a challenge domain and inspect its script references.
 - Expand detection rules to cover additional verified signals.
 - Extend error handling and later process multiple domains with per-domain results.
+- Refactor repeated JSON-writing code into a shared save operation.
 
 ## Development notes
 

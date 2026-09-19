@@ -2,7 +2,7 @@ import json
 from urllib.request import urlopen
 from urllib.parse import urljoin
 from html.parser import HTMLParser
-from urllib.error import URLError
+from urllib.error import URLError, HTTPError
 
 
 class ScriptParser(HTMLParser):
@@ -20,7 +20,7 @@ class ScriptParser(HTMLParser):
 
 
 
-url = "https://jcmobilecigars.com"
+url = "https://somalidisablesupport.com"
 
 
 try:
@@ -33,6 +33,25 @@ try:
         print("Tip conținut:", response.headers.get("Content-Type"))
         print("Primele 500 de caractere:")
         print(html[:500])
+
+
+except HTTPError as error:
+    print("Eroare HTTP:", error.code)
+    print("Motiv:", error.reason)
+
+    result = {
+        "source_type": "website",
+        "url": url,
+        "status": "error",
+        "http_status": error.code,
+        "error": str(error.reason),
+        "technologies": []
+    }
+
+    with open("results.json", "w", encoding="utf-8") as file:
+        json.dump(result, file, ensure_ascii=False, indent=4)
+
+    raise SystemExit(1)
 
 except URLError as error:
     print("Nu am putut descărca pagina:", url)
