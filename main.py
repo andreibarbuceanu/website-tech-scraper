@@ -72,7 +72,8 @@ print("Tehnologii identificate:", detections)
 
 
 result = {
-    "source_type": "sample_html",
+    "source_type": "website",
+    "url": final_url,
     "technologies": detections
 }
 

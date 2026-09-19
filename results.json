@@ -1,4 +1,5 @@
 {
-    "source_type": "sample_html",
+    "source_type": "website",
+    "url": "https://example.com",
     "technologies": []
 }
