@@ -1,4 +1,5 @@
 from urllib.request import urlopen
+from urllib.request import urljoin
 from html.parser import HTMLParser
 
 class ScriptParser(HTMLParser):
@@ -17,6 +18,7 @@ class ScriptParser(HTMLParser):
 url = "https://example.com"
 
 with urlopen(url, timeout=15) as response:
+    final_url = response.url
     html = response.read().decode("utf-8")
 
     print("Status HTTP:", response.status)
@@ -39,3 +41,7 @@ parser = ScriptParser()
 parser.feed(sample_html)
 
 print("Scripturi găsite:", parser.script_sources)
+
+for source in parser.script_sources:
+    full_url = urljoin(final_url, source)
+    print("Adresă completă:", full_url)

@@ -12,6 +12,8 @@ Built for the Veridion internship challenge.
   and first 500 characters of the HTML response.
 - Added a parser that extracts `src` attributes from HTML `<script>` tags.
 - The current parser analyzes the included sample HTML snippet.
+- Added absolute script URL construction using `urljoin(final_url, source)`.
+- Verified sample extraction and URL construction with a simulated HTTP response.
 - Successful live fetching and technology detection still need verification.
 
 Technology detection is not implemented yet. Extracting script sources
@@ -57,6 +59,7 @@ The current script requests https://example.com.
 3. Prints response metadata and an HTML preview.
 4. Passes `sample_html` to `ScriptParser`, based on `HTMLParser`.
 5. Collects and prints the non-empty `src` attributes of script tags.
+6. Builds and prints absolute script URLs using the final response URL as a base.
 
 ### Extracting script sources
 
@@ -91,7 +94,8 @@ For the sample above, the expected list is:
 
 The parser does not execute JavaScript or download the script files.
 It only extracts their references from the supplied HTML.
-`/assets/app.js` is a relative reference and is currently kept unchanged.
+The collected list retains original references; the final loop prints their
+absolute equivalents.
 
 In `main.py`, the code currently calls `parser.feed(sample_html)` to check
 extraction against a known example. To analyze the downloaded page, use
@@ -106,19 +110,43 @@ Script sources can later provide evidence for identifying technologies,
 but a generic filename such as `analytics.js` does not identify a specific
 analytics product. Detection rules need recognizable, specific signals.
 
+### Resolving script URLs
+
+`final_url = response.url` records the page URL after redirects.
+`urljoin(final_url, source)` combines this base with each script reference:
+
+```python
+from urllib.parse import urljoin
+
+urljoin('https://example.com', '/assets/app.js')
+# https://example.com/assets/app.js
+
+urljoin('https://example.com', 'https://cdn.example.com/analytics.js')
+# https://cdn.example.com/analytics.js
+```
+
+An already absolute URL remains unchanged. These are fictitious sample
+references; constructing their URLs does not download or validate the files.
+The sample extraction and both URL results were verified by running the script
+with a simulated HTTP response. This does not confirm live network access.
+
+The supported import location is `urllib.parse`. The current script imports
+`urljoin` from `urllib.request`, where it happens to be available in the tested
+Python runtime; this should be changed to the public import shown above.
+
 ## Current limitations
 
 - Uses one hardcoded URL.
 - Assumes the response is UTF-8.
 - Does not execute JavaScript or observe dynamically inserted scripts.
 - Ignores inline script content.
-- Keeps script references as written, without resolving relative URLs.
+- Does not account for an HTML `<base href>` when resolving relative URLs.
 - Does not yet handle request errors explicitly.
 - Does not detect technologies or save results.
 
 ## Next steps
 
-- Verify script extraction using the sample HTML.
+- Use the public `urllib.parse` import for `urljoin`.
 - Verify fetching and inspect a domain from the challenge dataset.
 - Identify a technology using a clear, observable signal.
 - Save the detection and its evidence as JSON.
