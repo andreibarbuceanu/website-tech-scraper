@@ -8,15 +8,16 @@ Built for the Veridion internship challenge.
 ## Current progress
 
 - Prepared an initial script to request a single web page.
-- The script prints the HTTP status, final URL, content type,
-  and first 500 characters of the HTML response.
+- On success, the script prints the HTTP status, final URL, and script references.
+- Analysis is encapsulated in `analyze_website(url)`, which returns a result dictionary.
 - Added a parser that extracts `src` attributes from HTML `<script>` tags.
 - The parser now analyzes the downloaded page HTML with `parser.feed(html)`.
 - Relative script references are resolved with `urllib.parse.urljoin`.
 - Added the first exact-URL detection rule for jQuery, with script URL evidence.
 - Stores detections as dictionaries in a `detections` list.
 - Exports `source_type`, `url`, `status`, and `technologies` to `results.json`.
-- Catches `URLError`, saves its reason in an `error` field, and exits with code 1.
+- Catches `URLError` and returns its reason in an `error` field without terminating the program.
+- Saves the returned result through one shared JSON-writing block outside the function.
 - Handles `HTTPError` separately to also save the numeric `http_status`.
 - Verified jQuery detection earlier with a controlled HTML example.
 - An earlier user run fetched `example.com` successfully (HTTP 200) and found
@@ -66,19 +67,21 @@ current working directory, replacing any existing file with that name.
 
 ## How it currently works
 
-1. Sends an HTTP request using Python's built-in `urllib.request`.
+1. Calls `analyze_website(url)`, which sends an HTTP request using `urllib.request`.
 2. Reads the response body and decodes it as UTF-8.
-3. Prints response metadata and an HTML preview.
+3. Prints the HTTP status and final response URL.
 4. Passes the downloaded `html` to `ScriptParser`, based on `HTMLParser`.
 5. Collects and prints the non-empty `src` attributes of script tags.
 6. Prints absolute script URLs using the final page URL as the base.
 7. Checks original script references against one exact jQuery URL and adds
    a structured detection to the `detections` list.
-8. Prints the list and wraps it in a `result` dictionary with source metadata.
-9. Saves `result` to `results.json`.
+8. Returns a dictionary with source metadata, status, and detections.
+9. Outside the function, assigns the returned dictionary to `result`, prints
+   it, and saves it to `results.json`.
 
-If the request raises `URLError`, the script instead saves an error result
-and exits before parsing. See the error-handling section below.
+If the request raises `HTTPError` or another `URLError`, the function returns
+an error dictionary before parsing. The caller still prints and saves this
+result. See the error-handling section below.
 
 ### Extracting script sources
 
@@ -117,8 +120,8 @@ Original references remain in the list; a separate loop prints absolute URLs.
 
 In `main.py`, `parser.feed(html)` analyzes the downloaded page.
 The earlier `sample_html` fixture has been removed from the script; its
-jQuery example is documented below. A caught request error is exported
-before the program exits without parsing.
+jQuery example is documented below. A caught request error returns from
+the function without parsing; the caller then exports the error result.
 
 An empty list means that the supplied HTML contained no script tags with
 non-empty `src` attributes. It does not prove that the website uses no
@@ -195,7 +198,7 @@ field is `[]`.
 The detections are wrapped in a dictionary identifying the analyzed source:
 
 ```python
-result = {
+return {
     "source_type": "website",
     "url": final_url,
     "status": "success",
@@ -255,10 +258,10 @@ the separate HTTP handling. Python executes only the first matching handler.
 An HTTP code describes the response but does not identify or resolve its
 underlying cause.
 
-For a non-HTTP `URLError`, the result is built as follows:
+For a non-HTTP `URLError`, the function returns:
 
 ```python
-result = {
+return {
     "source_type": "website",
     "url": url,
     "status": "error",
@@ -269,9 +272,11 @@ result = {
 
 On failure, `url` is the requested address because a final response URL
 may not be available. `str(error.reason)` converts the reason to text
-that can be serialized as JSON. After writing this result, the script
-calls `raise SystemExit(1)` to stop with a failure exit code. Parsing and
-the success-output block do not run.
+that can be serialized as JSON. `return` ends only the current function call,
+so parsing and the success return are skipped, but the caller continues to
+print and save the error result. `SystemExit(1)` is no longer used. A handled
+request error therefore does not itself produce a nonzero process exit code;
+the failure is represented by `status: error` in the returned data.
 
 The inspected `results.json` contains the latest failed attempt:
 
@@ -296,17 +301,30 @@ failure replaces the previous run's result rather than leaving stale data.
 Errors outside the current handler can still interrupt the program without
 updating the output.
 
-### Why there are three JSON-writing blocks
+### One analysis function and one JSON save
 
-There is a save block for HTTP errors, another for other URL errors, and
-one for successful analysis. Only one is reached per run on these paths:
-each error handler saves its result and calls `SystemExit(1)`, so execution
-cannot reach the success save afterward. On success, neither error handler
-runs. This differs from the earlier obsolete code that wrote two results
-sequentially in the same run.
+`analyze_website(url)` accepts a URL and returns a dictionary from one of
+three paths: HTTP error, other URL error, or successful analysis. It does
+not write output files. The calling code handles display and persistence:
 
-The repeated writing code can later be moved to a shared function or a
-single common save step. That refactoring has not been implemented yet.
+```python
+url = "https://somalidisablesupport.com"
+result = analyze_website(url)
+
+print("Rezultat:", result)
+
+with open("results.json", "w", encoding="utf-8") as file:
+    json.dump(result, file, ensure_ascii=False, indent=4)
+```
+
+The previous three save blocks have been replaced with this single block.
+In a handled error case, the terminal shows the returned result rather
+than separate error messages inside the function. On success, the function
+also prints the response status, final URL and extracted script references.
+
+Returning an error as data prepares the function for a future loop over
+multiple domains: a handled failure can be recorded before processing the
+next URL. The current calling code still analyzes only one URL.
 
 ## Current limitations
 
@@ -327,7 +345,6 @@ single common save step. That refactoring has not been implemented yet.
 - Obtain a successful fetch from a challenge domain and inspect its script references.
 - Expand detection rules to cover additional verified signals.
 - Extend error handling and later process multiple domains with per-domain results.
-- Refactor repeated JSON-writing code into a shared save operation.
 
 ## Development notes
 
