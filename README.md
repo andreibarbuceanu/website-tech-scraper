@@ -15,13 +15,16 @@ Built for the Veridion internship challenge.
 - Relative script references are resolved with `urllib.parse.urljoin`.
 - Added the first exact-URL detection rule for jQuery, with script URL evidence.
 - Stores detections as dictionaries in a `detections` list.
-- Exports `source_type`, the final page `url`, and `technologies` to `results.json`.
+- Exports `source_type`, `url`, `status`, and `technologies` to `results.json`.
+- Catches `URLError`, saves its reason in an `error` field, and exits with code 1.
 - Verified jQuery detection earlier with a controlled HTML example.
-- The latest user run fetched `example.com` successfully (HTTP 200) and found
+- An earlier user run fetched `example.com` successfully (HTTP 200) and found
   no external script references or matching technologies in the returned HTML.
+- The latest run attempted `jcmobilecigars.com` from the challenge list and
+  recorded a certificate verification failure in JSON.
 
 Technology detection is currently limited to one known jQuery script URL.
-The challenge dataset has not yet been analyzed by the tool.
+One challenge domain has been attempted; batch processing is not implemented.
 
 ## Requirements
 
@@ -54,7 +57,7 @@ source .venv/bin/activate
 python main.py
 ```
 
-Run from the project folder. The current script requests https://example.com
+Run from the project folder. The current script requests https://jcmobilecigars.com
 and checks its downloaded HTML for the known jQuery script URL. It writes `results.json` in the
 current working directory, replacing any existing file with that name.
 
@@ -70,6 +73,9 @@ current working directory, replacing any existing file with that name.
    a structured detection to the `detections` list.
 8. Prints the list and wraps it in a `result` dictionary with source metadata.
 9. Saves `result` to `results.json`.
+
+If the request raises `URLError`, the script instead saves an error result
+and exits before parsing. See the error-handling section below.
 
 ### Extracting script sources
 
@@ -107,9 +113,9 @@ It only extracts their references from the supplied HTML.
 Original references remain in the list; a separate loop prints absolute URLs.
 
 In `main.py`, `parser.feed(html)` analyzes the downloaded page.
-`sample_html` remains defined as an unused example containing the jQuery
-script shown below. It was used to verify the first detection rule.
-A network request error still stops the program before parsing and export.
+The earlier `sample_html` fixture has been removed from the script; its
+jQuery example is documented below. A caught request error is exported
+before the program exits without parsing.
 
 An empty list means that the supplied HTML contained no script tags with
 non-empty `src` attributes. It does not prove that the website uses no
@@ -189,12 +195,14 @@ The detections are wrapped in a dictionary identifying the analyzed source:
 result = {
     "source_type": "website",
     "url": final_url,
+    "status": "success",
     "technologies": detections
 }
 ```
 
 `source_type` labels this as a website analysis. `url` identifies the final
-page URL after redirects. `technologies` contains the detection dictionaries
+page URL after redirects. `status: success` indicates completed analysis,
+not necessarily a technology match. `technologies` contains the detection dictionaries
 derived from that page's downloaded HTML.
 
 The standard-library `json` module saves this result object:
@@ -210,23 +218,67 @@ formats the output for readability. The `with` block closes the file
 automatically. Unlike the in-memory list, the saved file remains after the
 program exits.
 
-The existing `results.json` was inspected and contains:
+For a successful analysis with no detections, the output has this format:
 
 ```json
 {
     "source_type": "website",
     "url": "https://example.com",
+    "status": "success",
     "technologies": []
 }
 ```
 
-This matches the latest user run: HTTP 200, an empty script-source list,
-and no detections. An empty `technologies` list means the current rule found
+The earlier `example.com` run returned HTTP 200, an empty script-source list,
+and no detections. On success, an empty `technologies` list means the current rule found
 no match; it does not establish that the website uses no technologies.
 This is a single-page result, not a completed output for the challenge dataset.
 
 The obsolete list-only JSON write has been removed. The script now writes
-the `result` object once per successful run.
+the `result` object once on either success or a caught `URLError`.
+
+### Request errors and failure output
+
+The HTTP request and response reading are inside a `try` block. If they
+raise `URLError`, `except URLError as error` prints the reason and builds:
+
+```python
+result = {
+    "source_type": "website",
+    "url": url,
+    "status": "error",
+    "error": str(error.reason),
+    "technologies": []
+}
+```
+
+On failure, `url` is the requested address because a final response URL
+may not be available. `str(error.reason)` converts the reason to text
+that can be serialized as JSON. After writing this result, the script
+calls `raise SystemExit(1)` to stop with a failure exit code. Parsing and
+the success-output block do not run.
+
+The inspected `results.json` contains the latest failed attempt:
+
+```json
+{
+    "source_type": "website",
+    "url": "https://jcmobilecigars.com",
+    "status": "error",
+    "error": "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1082)",
+    "technologies": []
+}
+```
+
+The certificate problem remains unresolved and HTTPS certificate verification
+remains enabled. The error alone does not establish whether the cause is
+the website, a network intermediary, or the local trust configuration.
+
+With `status: error`, the empty technology list means analysis could not
+be completed, unlike a successful analysis with no matches. Saving the
+failure replaces the previous run's result rather than leaving stale data.
+Errors outside the current handler can still interrupt the program without
+updating the output.
 
 ## Current limitations
 
@@ -235,17 +287,18 @@ the `result` object once per successful run.
 - Does not execute JavaScript or observe dynamically inserted scripts.
 - Ignores inline script content.
 - Does not account for HTML `<base href>` when resolving relative URLs.
-- Does not yet handle request errors explicitly.
+- Handles `URLError`, but not all failures (for example, direct timeouts,
+  decoding errors, or file-write errors).
 - Detects only one exact jQuery URL in the downloaded HTML.
 - Detection compares original script references, not the absolute URLs printed earlier.
 - Overwrites the output on each run and does not handle file-write errors explicitly.
-- Does not analyze the challenge dataset yet.
+- Processes only one hardcoded URL, not the full challenge dataset.
 
 ## Next steps
 
-- Inspect a domain from the challenge dataset and evaluate detection on real HTML.
+- Obtain a successful fetch from a challenge domain and inspect its script references.
 - Expand detection rules to cover additional verified signals.
-- Handle request errors so an unavailable website can be reported explicitly.
+- Extend error handling and later process multiple domains with per-domain results.
 
 ## Development notes
 
