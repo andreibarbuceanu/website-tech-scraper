@@ -2,6 +2,7 @@ import json
 from urllib.request import urlopen
 from urllib.parse import urljoin
 from html.parser import HTMLParser
+from urllib.error import URLError
 
 
 class ScriptParser(HTMLParser):
@@ -19,28 +20,36 @@ class ScriptParser(HTMLParser):
 
 
 
-url = "https://example.com"
+url = "https://jcmobilecigars.com"
 
 
-with urlopen(url, timeout=15) as response:
-    final_url = response.url
-    html = response.read().decode("utf-8")
+try:
+    with urlopen(url, timeout=15) as response:
+        final_url = response.url
+        html = response.read().decode("utf-8")
 
-    print("Status HTTP:", response.status)
-    print("URL final:", response.url)
-    print("Tip conținut:", response.headers.get("Content-Type"))
-    print("Primele 500 de caractere:")
-    print(html[:500])
+        print("Status HTTP:", response.status)
+        print("URL final:", final_url)
+        print("Tip conținut:", response.headers.get("Content-Type"))
+        print("Primele 500 de caractere:")
+        print(html[:500])
 
+except URLError as error:
+    print("Nu am putut descărca pagina:", url)
+    print("Motiv:", error.reason)
 
-sample_html = """
-<html>
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="/assets/app.js"></script>
-    <script src="https://cdn.example.com/analytics.js"></script>
-    <script>console.log("inline script");</script>
-</html>
-"""
+    result = {
+        "source_type": "website",
+        "url": url,
+        "status": "error",
+        "error": str(error.reason),
+        "technologies": []
+    }
+
+    with open("results.json", "w", encoding="utf-8") as file:
+        json.dump(result, file, ensure_ascii=False, indent=4)
+
+    raise SystemExit(1)
 
 
 parser = ScriptParser()
@@ -74,6 +83,7 @@ print("Tehnologii identificate:", detections)
 result = {
     "source_type": "website",
     "url": final_url,
+    "status": "success",
     "technologies": detections
 }
 
