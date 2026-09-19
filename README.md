@@ -11,16 +11,17 @@ Built for the Veridion internship challenge.
 - The script prints the HTTP status, final URL, content type,
   and first 500 characters of the HTML response.
 - Added a parser that extracts `src` attributes from HTML `<script>` tags.
-- The parser currently analyzes `sample_html`, a controlled HTML example.
+- The parser now analyzes the downloaded page HTML with `parser.feed(html)`.
 - Relative script references are resolved with `urllib.parse.urljoin`.
 - Added the first exact-URL detection rule for jQuery, with script URL evidence.
 - Stores detections as dictionaries in a `detections` list.
-- Exports a result object with `source_type` and `technologies` to `results.json`;
-  the existing file contains the expected sample jQuery record in this structure.
-- The user's terminal run confirmed page fetching and the expected sample detection.
+- Exports `source_type`, the final page `url`, and `technologies` to `results.json`.
+- Verified jQuery detection earlier with a controlled HTML example.
+- The latest user run fetched `example.com` successfully (HTTP 200) and found
+  no external script references or matching technologies in the returned HTML.
 
-Technology detection is currently limited to one known jQuery script URL
-in the sample. Detection on the challenge domains is not implemented yet.
+Technology detection is currently limited to one known jQuery script URL.
+The challenge dataset has not yet been analyzed by the tool.
 
 ## Requirements
 
@@ -53,8 +54,8 @@ source .venv/bin/activate
 python main.py
 ```
 
-Run from the project folder. The current script requests https://example.com,
-but detects technologies in `sample_html`. It writes `results.json` in the
+Run from the project folder. The current script requests https://example.com
+and checks its downloaded HTML for the known jQuery script URL. It writes `results.json` in the
 current working directory, replacing any existing file with that name.
 
 ## How it currently works
@@ -62,7 +63,7 @@ current working directory, replacing any existing file with that name.
 1. Sends an HTTP request using Python's built-in `urllib.request`.
 2. Reads the response body and decodes it as UTF-8.
 3. Prints response metadata and an HTML preview.
-4. Passes `sample_html` to `ScriptParser`, based on `HTMLParser`.
+4. Passes the downloaded `html` to `ScriptParser`, based on `HTMLParser`.
 5. Collects and prints the non-empty `src` attributes of script tags.
 6. Prints absolute script URLs using the final page URL as the base.
 7. Checks original script references against one exact jQuery URL and adds
@@ -105,10 +106,10 @@ The parser does not execute JavaScript or download the script files.
 It only extracts their references from the supplied HTML.
 Original references remain in the list; a separate loop prints absolute URLs.
 
-In `main.py`, `parser.feed(sample_html)` analyzes the controlled example.
-The actual sample also includes the jQuery script shown below.
-The earlier network request still executes first, so a request error can
-prevent the sample test from running.
+In `main.py`, `parser.feed(html)` analyzes the downloaded page.
+`sample_html` remains defined as an unused example containing the jQuery
+script shown below. It was used to verify the first detection rule.
+A network request error still stops the program before parsing and export.
 
 An empty list means that the supplied HTML contained no script tags with
 non-empty `src` attributes. It does not prove that the website uses no
@@ -152,7 +153,8 @@ URL, it stores the technology and the matching reference as evidence.
 The list is initialized with `detections = []` before the loop.
 This connects a detection to an observable HTML signal.
 
-The user's terminal output confirmed a list containing the expected record:
+During the earlier controlled sample test, the user's terminal output
+confirmed a list containing the expected record:
 
 ```json
 [
@@ -185,15 +187,15 @@ The detections are wrapped in a dictionary identifying the analyzed source:
 
 ```python
 result = {
-    "source_type": "sample_html",
+    "source_type": "website",
+    "url": final_url,
     "technologies": detections
 }
 ```
 
-`source_type` explicitly labels this as a controlled HTML example.
-`technologies` contains the list of detection dictionaries. The output does
-not attribute these detections to `example.com`, whose downloaded HTML is
-not currently passed to the parser.
+`source_type` labels this as a website analysis. `url` identifies the final
+page URL after redirects. `technologies` contains the detection dictionaries
+derived from that page's downloaded HTML.
 
 The standard-library `json` module saves this result object:
 
@@ -212,25 +214,19 @@ The existing `results.json` was inspected and contains:
 
 ```json
 {
-    "source_type": "sample_html",
-    "technologies": [
-        {
-            "technology": "jQuery",
-            "evidence_type": "script_src",
-            "evidence": "https://code.jquery.com/jquery-3.7.1.min.js"
-        }
-    ]
+    "source_type": "website",
+    "url": "https://example.com",
+    "technologies": []
 }
 ```
 
-This is a controlled-example result, not a finding about `example.com` or
-a completed output for the challenge dataset.
+This matches the latest user run: HTTP 200, an empty script-source list,
+and no detections. An empty `technologies` list means the current rule found
+no match; it does not establish that the website uses no technologies.
+This is a single-page result, not a completed output for the challenge dataset.
 
-The current code still contains the previous `json.dump(detections, ...)`
-write immediately before the new `json.dump(result, ...)` write. Both open
-the same file in `w` mode, so the second overwrites the first. The final
-file has the correct object structure; the obsolete first write should
-be removed to avoid writing the file twice.
+The obsolete list-only JSON write has been removed. The script now writes
+the `result` object once per successful run.
 
 ## Current limitations
 
@@ -240,17 +236,16 @@ be removed to avoid writing the file twice.
 - Ignores inline script content.
 - Does not account for HTML `<base href>` when resolving relative URLs.
 - Does not yet handle request errors explicitly.
-- Detects only one exact jQuery URL in the controlled sample.
-- Results do not yet include the analyzed domain or page URL.
+- Detects only one exact jQuery URL in the downloaded HTML.
+- Detection compares original script references, not the absolute URLs printed earlier.
 - Overwrites the output on each run and does not handle file-write errors explicitly.
 - Does not analyze the challenge dataset yet.
 
 ## Next steps
 
-- Remove the obsolete JSON write so only `result` is saved once.
-- Include the analyzed domain or page URL alongside detections in the output.
 - Inspect a domain from the challenge dataset and evaluate detection on real HTML.
 - Expand detection rules to cover additional verified signals.
+- Handle request errors so an unavailable website can be reported explicitly.
 
 ## Development notes
 
