@@ -14,6 +14,8 @@ Built for the Veridion internship challenge.
 - The parser currently analyzes `sample_html`, a controlled HTML example.
 - Relative script references are resolved with `urllib.parse.urljoin`.
 - Added the first exact-URL detection rule for jQuery, with script URL evidence.
+- Stores detections as dictionaries in a `detections` list.
+- Exports the list to `results.json`; the existing file contains the expected sample jQuery record.
 - The user's terminal run confirmed page fetching and the expected sample detection.
 
 Technology detection is currently limited to one known jQuery script URL
@@ -50,7 +52,9 @@ source .venv/bin/activate
 python main.py
 ```
 
-The current script requests https://example.com.
+Run from the project folder. The current script requests https://example.com,
+but detects technologies in `sample_html`. It writes `results.json` in the
+current working directory, replacing any existing file with that name.
 
 ## How it currently works
 
@@ -60,8 +64,9 @@ The current script requests https://example.com.
 4. Passes `sample_html` to `ScriptParser`, based on `HTMLParser`.
 5. Collects and prints the non-empty `src` attributes of script tags.
 6. Prints absolute script URLs using the final page URL as the base.
-7. Checks original script references against one exact jQuery URL and prints
-   the technology name and matching URL as evidence.
+7. Checks original script references against one exact jQuery URL and adds
+   a structured detection to the `detections` list.
+8. Prints the list and saves it to `results.json`.
 
 ### Extracting script sources
 
@@ -132,26 +137,62 @@ The first rule uses an exact string comparison:
 ```python
 for source in parser.script_sources:
     if source == "https://code.jquery.com/jquery-3.7.1.min.js":
-        print("Tehnologie identificată: jQuery")
-        print("Dovadă:", source)
+        detection = {
+            "technology": "jQuery",
+            "evidence_type": "script_src",
+            "evidence": source
+        }
+        detections.append(detection)
 ```
 
 The loop checks each extracted `src`. When a reference matches the known
-URL, it prints the technology and the matching reference as evidence.
+URL, it stores the technology and the matching reference as evidence.
+The list is initialized with `detections = []` before the loop.
 This connects a detection to an observable HTML signal.
 
-The user's terminal output confirmed the expected result:
+The user's terminal output confirmed a list containing the expected record:
 
-```text
-Tehnologie identificată: jQuery
-Dovadă: https://code.jquery.com/jquery-3.7.1.min.js
+```json
+[
+    {
+        "technology": "jQuery",
+        "evidence_type": "script_src",
+        "evidence": "https://code.jquery.com/jquery-3.7.1.min.js"
+    }
+]
 ```
 
 This confirms the rule works on `sample_html`; it does not establish that
 `example.com` uses jQuery. The rule recognizes only this exact URL, so other
 versions, hosts, relative references or query strings will not match.
 It detects a script reference, not successful loading or execution of jQuery.
-Results are currently printed, not stored as structured records.
+### Structured results and JSON output
+
+Each detection is a Python dictionary with three fields:
+
+- `technology`: the identified technology name.
+- `evidence_type`: the source of the signal; `script_src` means a script's `src` attribute.
+- `evidence`: the actual script reference that matched the rule.
+
+`detections.append(detection)` adds the dictionary to the list. If no script
+matches, the list remains empty and the exported JSON is `[]`.
+
+The standard-library `json` module saves the list:
+
+```python
+with open("results.json", "w", encoding="utf-8") as file:
+    json.dump(detections, file, ensure_ascii=False, indent=4)
+```
+
+`w` creates the file or overwrites its previous contents. UTF-8 and
+`ensure_ascii=False` preserve readable Unicode characters; `indent=4`
+formats the output for readability. The `with` block closes the file
+automatically. Unlike the in-memory list, the saved file remains after the
+program exits.
+
+The existing `results.json` was inspected and contains the sample record
+shown above. This is a controlled-example result, not a finding about
+`example.com` or a completed output for the challenge dataset.
 
 ## Current limitations
 
@@ -162,12 +203,13 @@ Results are currently printed, not stored as structured records.
 - Does not account for HTML `<base href>` when resolving relative URLs.
 - Does not yet handle request errors explicitly.
 - Detects only one exact jQuery URL in the controlled sample.
-- Does not save results or analyze the challenge dataset yet.
+- Results do not yet include the analyzed domain or page URL.
+- Overwrites the output on each run and does not handle file-write errors explicitly.
+- Does not analyze the challenge dataset yet.
 
 ## Next steps
 
-- Store each detection and its evidence in a structured record.
-- Save the detection and its evidence as JSON.
+- Include the analyzed domain or page URL alongside detections in the output.
 - Inspect a domain from the challenge dataset and evaluate detection on real HTML.
 - Expand detection rules to cover additional verified signals.
 
