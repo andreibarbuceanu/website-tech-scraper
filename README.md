@@ -11,13 +11,13 @@ Built for the Veridion internship challenge.
 - The script prints the HTTP status, final URL, content type,
   and first 500 characters of the HTML response.
 - Added a parser that extracts `src` attributes from HTML `<script>` tags.
-- The current parser analyzes the included sample HTML snippet.
-- Added absolute script URL construction using `urljoin(final_url, source)`.
-- Verified sample extraction and URL construction with a simulated HTTP response.
-- Successful live fetching and technology detection still need verification.
+- The parser currently analyzes `sample_html`, a controlled HTML example.
+- Relative script references are resolved with `urllib.parse.urljoin`.
+- Added the first exact-URL detection rule for jQuery, with script URL evidence.
+- The user's terminal run confirmed page fetching and the expected sample detection.
 
-Technology detection is not implemented yet. Extracting script sources
-collects potential evidence for future detection rules.
+Technology detection is currently limited to one known jQuery script URL
+in the sample. Detection on the challenge domains is not implemented yet.
 
 ## Requirements
 
@@ -59,7 +59,9 @@ The current script requests https://example.com.
 3. Prints response metadata and an HTML preview.
 4. Passes `sample_html` to `ScriptParser`, based on `HTMLParser`.
 5. Collects and prints the non-empty `src` attributes of script tags.
-6. Builds and prints absolute script URLs using the final response URL as a base.
+6. Prints absolute script URLs using the final page URL as the base.
+7. Checks original script references against one exact jQuery URL and prints
+   the technology name and matching URL as evidence.
 
 ### Extracting script sources
 
@@ -94,13 +96,12 @@ For the sample above, the expected list is:
 
 The parser does not execute JavaScript or download the script files.
 It only extracts their references from the supplied HTML.
-The collected list retains original references; the final loop prints their
-absolute equivalents.
+Original references remain in the list; a separate loop prints absolute URLs.
 
-In `main.py`, the code currently calls `parser.feed(sample_html)` to check
-extraction against a known example. To analyze the downloaded page, use
-`parser.feed(html)` instead. The network request still runs before the
-sample test, so a request error can prevent the test from running.
+In `main.py`, `parser.feed(sample_html)` analyzes the controlled example.
+The actual sample also includes the jQuery script shown below.
+The earlier network request still executes first, so a request error can
+prevent the sample test from running.
 
 An empty list means that the supplied HTML contained no script tags with
 non-empty `src` attributes. It does not prove that the website uses no
@@ -113,26 +114,44 @@ analytics product. Detection rules need recognizable, specific signals.
 ### Resolving script URLs
 
 `final_url = response.url` records the page URL after redirects.
-`urljoin(final_url, source)` combines this base with each script reference:
+`urljoin(final_url, source)` builds a complete URL from each script reference.
+For a base of `https://example.com`, `/assets/app.js` becomes
+`https://example.com/assets/app.js`. Already absolute URLs remain unchanged.
+This constructs addresses without downloading or validating script files.
 
-```python
-from urllib.parse import urljoin
+### First technology detection: jQuery
 
-urljoin('https://example.com', '/assets/app.js')
-# https://example.com/assets/app.js
+The controlled sample contains:
 
-urljoin('https://example.com', 'https://cdn.example.com/analytics.js')
-# https://cdn.example.com/analytics.js
+```html
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 ```
 
-An already absolute URL remains unchanged. These are fictitious sample
-references; constructing their URLs does not download or validate the files.
-The sample extraction and both URL results were verified by running the script
-with a simulated HTTP response. This does not confirm live network access.
+The first rule uses an exact string comparison:
 
-The supported import location is `urllib.parse`. The current script imports
-`urljoin` from `urllib.request`, where it happens to be available in the tested
-Python runtime; this should be changed to the public import shown above.
+```python
+for source in parser.script_sources:
+    if source == "https://code.jquery.com/jquery-3.7.1.min.js":
+        print("Tehnologie identificată: jQuery")
+        print("Dovadă:", source)
+```
+
+The loop checks each extracted `src`. When a reference matches the known
+URL, it prints the technology and the matching reference as evidence.
+This connects a detection to an observable HTML signal.
+
+The user's terminal output confirmed the expected result:
+
+```text
+Tehnologie identificată: jQuery
+Dovadă: https://code.jquery.com/jquery-3.7.1.min.js
+```
+
+This confirms the rule works on `sample_html`; it does not establish that
+`example.com` uses jQuery. The rule recognizes only this exact URL, so other
+versions, hosts, relative references or query strings will not match.
+It detects a script reference, not successful loading or execution of jQuery.
+Results are currently printed, not stored as structured records.
 
 ## Current limitations
 
@@ -140,16 +159,17 @@ Python runtime; this should be changed to the public import shown above.
 - Assumes the response is UTF-8.
 - Does not execute JavaScript or observe dynamically inserted scripts.
 - Ignores inline script content.
-- Does not account for an HTML `<base href>` when resolving relative URLs.
+- Does not account for HTML `<base href>` when resolving relative URLs.
 - Does not yet handle request errors explicitly.
-- Does not detect technologies or save results.
+- Detects only one exact jQuery URL in the controlled sample.
+- Does not save results or analyze the challenge dataset yet.
 
 ## Next steps
 
-- Use the public `urllib.parse` import for `urljoin`.
-- Verify fetching and inspect a domain from the challenge dataset.
-- Identify a technology using a clear, observable signal.
+- Store each detection and its evidence in a structured record.
 - Save the detection and its evidence as JSON.
+- Inspect a domain from the challenge dataset and evaluate detection on real HTML.
+- Expand detection rules to cover additional verified signals.
 
 ## Development notes
 

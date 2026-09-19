@@ -33,6 +33,7 @@ with urlopen(url, timeout=15) as response:
 
 sample_html = """
 <html>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="/assets/app.js"></script>
     <script src="https://cdn.example.com/analytics.js"></script>
     <script>console.log("inline script");</script>
@@ -47,3 +48,9 @@ print("Scripturi găsite:", parser.script_sources)
 for source in parser.script_sources:
     full_url = urljoin(final_url, source)
     print("Adresă completă:", full_url)
+
+
+for source in parser.script_sources:
+    if source == "https://code.jquery.com/jquery-3.7.1.min.js":
+        print("Tehnologie identificată: jQuery")
+        print("Dovadă:", source)
