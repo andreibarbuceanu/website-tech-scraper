@@ -1,5 +1,5 @@
 from urllib.request import urlopen
-from urllib.request import urljoin
+from urllib.parse import urljoin
 from html.parser import HTMLParser
 
 class ScriptParser(HTMLParser):
@@ -16,6 +16,8 @@ class ScriptParser(HTMLParser):
                 self.script_sources.append(source)
 
 url = "https://example.com"
+
+
 
 with urlopen(url, timeout=15) as response:
     final_url = response.url
