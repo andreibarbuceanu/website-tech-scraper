@@ -1,7 +1,4 @@
-[
-    {
-        "technology": "jQuery",
-        "evidence_type": "script_src",
-        "evidence": "https://code.jquery.com/jquery-3.7.1.min.js"
-    }
-]
+{
+    "source_type": "sample_html",
+    "technologies": []
+}

@@ -44,7 +44,7 @@ sample_html = """
 
 
 parser = ScriptParser()
-parser.feed(sample_html)
+parser.feed(html)
 
 
 print("Scripturi găsite:", parser.script_sources)
@@ -70,5 +70,12 @@ for source in parser.script_sources:
 
 print("Tehnologii identificate:", detections)
 
+
+result = {
+    "source_type": "sample_html",
+    "technologies": detections
+}
+
+
 with open("results.json", "w", encoding="utf-8") as file:
-    json.dump(detections, file, ensure_ascii=False, indent=4)
+    json.dump(result, file, ensure_ascii=False, indent=4)

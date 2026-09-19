@@ -15,7 +15,8 @@ Built for the Veridion internship challenge.
 - Relative script references are resolved with `urllib.parse.urljoin`.
 - Added the first exact-URL detection rule for jQuery, with script URL evidence.
 - Stores detections as dictionaries in a `detections` list.
-- Exports the list to `results.json`; the existing file contains the expected sample jQuery record.
+- Exports a result object with `source_type` and `technologies` to `results.json`;
+  the existing file contains the expected sample jQuery record in this structure.
 - The user's terminal run confirmed page fetching and the expected sample detection.
 
 Technology detection is currently limited to one known jQuery script URL
@@ -66,7 +67,8 @@ current working directory, replacing any existing file with that name.
 6. Prints absolute script URLs using the final page URL as the base.
 7. Checks original script references against one exact jQuery URL and adds
    a structured detection to the `detections` list.
-8. Prints the list and saves it to `results.json`.
+8. Prints the list and wraps it in a `result` dictionary with source metadata.
+9. Saves `result` to `results.json`.
 
 ### Extracting script sources
 
@@ -166,6 +168,7 @@ This confirms the rule works on `sample_html`; it does not establish that
 `example.com` uses jQuery. The rule recognizes only this exact URL, so other
 versions, hosts, relative references or query strings will not match.
 It detects a script reference, not successful loading or execution of jQuery.
+
 ### Structured results and JSON output
 
 Each detection is a Python dictionary with three fields:
@@ -175,13 +178,28 @@ Each detection is a Python dictionary with three fields:
 - `evidence`: the actual script reference that matched the rule.
 
 `detections.append(detection)` adds the dictionary to the list. If no script
-matches, the list remains empty and the exported JSON is `[]`.
+matches, the list remains empty and the exported object's `technologies`
+field is `[]`.
 
-The standard-library `json` module saves the list:
+The detections are wrapped in a dictionary identifying the analyzed source:
+
+```python
+result = {
+    "source_type": "sample_html",
+    "technologies": detections
+}
+```
+
+`source_type` explicitly labels this as a controlled HTML example.
+`technologies` contains the list of detection dictionaries. The output does
+not attribute these detections to `example.com`, whose downloaded HTML is
+not currently passed to the parser.
+
+The standard-library `json` module saves this result object:
 
 ```python
 with open("results.json", "w", encoding="utf-8") as file:
-    json.dump(detections, file, ensure_ascii=False, indent=4)
+    json.dump(result, file, ensure_ascii=False, indent=4)
 ```
 
 `w` creates the file or overwrites its previous contents. UTF-8 and
@@ -190,9 +208,29 @@ formats the output for readability. The `with` block closes the file
 automatically. Unlike the in-memory list, the saved file remains after the
 program exits.
 
-The existing `results.json` was inspected and contains the sample record
-shown above. This is a controlled-example result, not a finding about
-`example.com` or a completed output for the challenge dataset.
+The existing `results.json` was inspected and contains:
+
+```json
+{
+    "source_type": "sample_html",
+    "technologies": [
+        {
+            "technology": "jQuery",
+            "evidence_type": "script_src",
+            "evidence": "https://code.jquery.com/jquery-3.7.1.min.js"
+        }
+    ]
+}
+```
+
+This is a controlled-example result, not a finding about `example.com` or
+a completed output for the challenge dataset.
+
+The current code still contains the previous `json.dump(detections, ...)`
+write immediately before the new `json.dump(result, ...)` write. Both open
+the same file in `w` mode, so the second overwrites the first. The final
+file has the correct object structure; the obsolete first write should
+be removed to avoid writing the file twice.
 
 ## Current limitations
 
@@ -209,6 +247,7 @@ shown above. This is a controlled-example result, not a finding about
 
 ## Next steps
 
+- Remove the obsolete JSON write so only `result` is saved once.
 - Include the analyzed domain or page URL alongside detections in the output.
 - Inspect a domain from the challenge dataset and evaluate detection on real HTML.
 - Expand detection rules to cover additional verified signals.
