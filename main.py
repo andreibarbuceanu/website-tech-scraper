@@ -29,7 +29,12 @@ def analyze_website(url):
     try:
         with urlopen(request, timeout=15) as response:
             final_url = response.url
-            html = response.read().decode("utf-8")
+            raw_html = response.read()
+
+            encoding = response.headers.get_content_charset() or "utf-8"
+            print("Codificare folosită:", encoding)
+
+            html = raw_html.decode(encoding)
 
             print("Status HTTP:", response.status)
             print("URL final:", final_url)
@@ -82,7 +87,7 @@ def analyze_website(url):
     }
 
 
-url = "https://somalidisablesupport.com"
+url = "https://szentkristofudvarhaz.hu"
 result = analyze_website(url)
 
 print("Rezultat:", result)

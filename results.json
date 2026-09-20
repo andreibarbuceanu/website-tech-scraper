@@ -1,8 +1,7 @@
 {
     "source_type": "website",
-    "url": "https://somalidisablesupport.com",
+    "url": "https://yourfamilylines.com",
     "status": "error",
-    "http_status": 406,
-    "error": "Not Acceptable",
+    "error": "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate (_ssl.c:1082)",
     "technologies": []
 }
